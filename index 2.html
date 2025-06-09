@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قارئ باركود وتخزين الأرقام</title>
+    <script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', Tahoma, Arial, sans-serif;
+            background: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%);
+            min-height: 100vh;
+            margin: 0;
+            text-align: center;
+            padding: 0;
+            position: relative;
+            overflow-x: hidden;
+        }
+        h2 {
+            color: #0078d7;
+            margin-top: 40px;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+            letter-spacing: 1px;
+        }
+        #main-card {
+            background: #fff;
+            max-width: 420px;
+            margin: 30px auto 0 auto;
+            border-radius: 18px;
+            box-shadow: 0 4px 24px #0078d71a, 0 1.5px 4px #0001;
+            padding: 30px 20px 25px 20px;
+        }
+        #reader {
+            margin: 0 auto 18px auto;
+            width: 320px;
+            height: 240px;
+            background: #222;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px #0001;
+        }
+        #result {
+            margin-top: 18px;
+            font-size: 1.1em;
+            color: #007a3d;
+            background: #e0ffe0;
+            padding: 10px 18px;
+            border-radius: 8px;
+            display: inline-block;
+            min-height: 24px;
+        }
+        button {
+            padding: 10px 22px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            border: none;
+            background: #0078d7;
+            color: #fff;
+            cursor: pointer;
+            margin: 10px 6px 0 6px;
+            transition: background 0.2s;
+            box-shadow: 0 1.5px 4px #0078d71a;
+        }
+        button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+        #numbers-list {
+            margin: 30px auto 0;
+            max-width: 420px;
+            background: #f7faff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px #0078d71a;
+            padding: 18px 10px 10px 10px;
+            text-align: right;
+        }
+        #numbers-list b {
+            color: #0078d7;
+            font-size: 1.1em;
+        }
+        #numbers-list ul {
+            list-style: decimal inside;
+            padding-right: 0;
+            margin: 10px 0 0 0;
+        }
+        #numbers-list li {
+            font-size: 1.08em;
+            margin-bottom: 7px;
+            direction: ltr;
+            text-align: left;
+            background: #fff;
+            border-radius: 6px;
+            padding: 6px 10px;
+            box-shadow: 0 1px 3px #0001;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .company {
+            color: #0078d7;
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 80px;
+            display: inline-block;
+        }
+        #manual-input, #company-select {
+            padding:8px;
+            font-size:1em;
+            border-radius:6px;
+            border:1px solid #ccc;
+            margin-bottom: 8px;
+        }
+        #manual-input {
+            width: 170px;
+            margin-left: 8px;
+        }
+        @media (max-width: 600px) {
+            #main-card, #numbers-list {
+                max-width: 98vw;
+                padding: 10px 2vw;
+            }
+            #reader {
+                width: 98vw;
+                min-width: 220px;
+                max-width: 99vw;
+            }
+        }
+        /* دوائر شفافة بلورية للخلفية */
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(32px);
+            opacity: 0.35;
+            z-index: 0;
+        }
+        .bg1 {
+            width: 340px; height: 340px;
+            left: -120px; top: -80px;
+            background: radial-gradient(circle, #6dd5ed 0%, #2193b0 100%);
+        }
+        .bg2 {
+            width: 260px; height: 260px;
+            right: -80px; top: 120px;
+            background: radial-gradient(circle, #fcb69f 0%, #ffecd2 100%);
+        }
+        .bg3 {
+            width: 200px; height: 200px;
+            left: 40vw; bottom: -80px;
+            background: radial-gradient(circle, #a1c4fd 0%, #c2e9fb 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-shape bg1"></div>
+    <div class="bg-shape bg2"></div>
+    <div class="bg-shape bg3"></div>
+    <h2>قارئ باركود </h2>
+    <div id="main-card">
+        <div id="reader"></div>
+        <div id="result"></div>
+        <button id="start-btn">ابدأ المسح</button>
+        <button id="stop-btn" disabled>إيقاف الكاميرا</button>
+        <button id="download-btn">تحميل الأرقام</button>
+        <div id="numbers-list">
+            <b>الأرقام/الباركودات التي تم مسحها:</b>
+            <ul id="list"></ul>
+        </div>
+        <div style="margin: 25px 0;">
+            <select id="company-select" style="padding:8px; font-size:1em; border-radius:6px; border:1px solid #ccc;">
+                <option value="Samsung">Samsung</option>
+                <option value="Apple">Apple</option>
+                <option value="Huawei">Huawei</option>
+                <option value="Oppo">Oppo</option>
+                <option value="Xiaomi">Xiaomi</option>
+                <option value="Infinix">Infinix</option>
+                <option value="Tecno">Tecno</option>
+                <option value="Realme">Realme</option>
+                <option value="Vivo">Vivo</option>
+                <option value="Nokia">Nokia</option>
+                <option value="OnePlus">OnePlus</option>
+                <option value="Sony">Sony</option>
+                <option value="LG">LG</option>
+                <option value="Motorola">Motorola</option>
+                <option value="Honor">Honor</option>
+                <option value="Other">أخرى</option>
+            </select>
+            <input id="manual-input" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="أدخل السيريال يدويًا (أرقام فقط)" style="padding:8px; font-size:1em; width:170px; border-radius:6px; border:1px solid #ccc; margin-left:8px;">
+            <button id="add-manual-btn">إضافة</button>
+        </div>
+    </div>
+    <footer style="margin-top: 40px; color: #555; font-size: 1em; letter-spacing: 1px; opacity: 0.85;">
+        Design by Eng. Youssef Shaaban
+    </footer>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const listUl = document.getElementById('list');
+        let scanning = false;
+        let numbers = [];
+        const manualInput = document.getElementById('manual-input');
+        const addManualBtn = document.getElementById('add-manual-btn');
+        const companySelect = document.getElementById('company-select');
+
+        // قاعدة بيانات TAC مختصرة لبعض الشركات (يمكنك التوسيع لاحقًا)
+        const tacDb = [
+            { tac: '35', company: 'Apple' },
+            { tac: '01', company: 'Motorola' },
+            { tac: '86', company: 'Huawei' },
+            { tac: '86', company: 'Xiaomi' },
+            { tac: '35', company: 'Nokia' },
+            { tac: '35', company: 'Sony' },
+            { tac: '35', company: 'HTC' },
+            { tac: '35', company: 'LG' },
+            { tac: '35', company: 'Oppo' },
+            { tac: '35', company: 'Samsung' },
+            { tac: '35', company: 'OnePlus' },
+            { tac: '35', company: 'Realme' },
+            { tac: '35', company: 'Vivo' },
+            { tac: '35', company: 'Lenovo' },
+            { tac: '35', company: 'Google' },
+            { tac: '86', company: 'Infinix' },
+            { tac: '86', company: 'Tecno' },
+            { tac: '86', company: 'Itel' },
+            { tac: '86', company: 'Alcatel' },
+            { tac: '86', company: 'ZTE' },
+            { tac: '86', company: 'Meizu' },
+            { tac: '86', company: 'Honor' },
+            { tac: '86', company: 'Blackview' },
+            { tac: '86', company: 'Doogee' },
+            { tac: '86', company: 'Ulefone' },
+            { tac: '86', company: 'Cubot' },
+            { tac: '86', company: 'Leagoo' },
+            { tac: '86', company: 'Blu' },
+            { tac: '86', company: 'Wiko' },
+            { tac: '86', company: 'Micromax' },
+            { tac: '86', company: 'Lava' },
+            { tac: '86', company: 'Panasonic' },
+            { tac: '86', company: 'Sharp' },
+            { tac: '86', company: 'Asus' },
+            { tac: '86', company: 'Philips' },
+            { tac: '86', company: 'TCL' },
+            { tac: '86', company: 'Verykool' },
+            { tac: '86', company: 'Plum' },
+            { tac: '86', company: 'Coolpad' },
+            { tac: '86', company: 'Hisense' },
+            { tac: '86', company: 'Gionee' },
+            { tac: '86', company: 'BQ' },
+            { tac: '86', company: 'Prestigio' },
+            { tac: '86', company: 'Archos' },
+            { tac: '86', company: 'Fairphone' },
+        ];
+
+        // دالة استخراج اسم الشركة من IMEI أو السيريال
+        function getCompany(serial) {
+            // إذا كان IMEI (15 رقم)
+            if (/^\d{15}$/.test(serial)) {
+                const tac = serial.substring(0, 2); // يمكن التوسيع لاحقًا إلى 8 أرقام
+                const found = tacDb.find(e => e.tac === tac);
+                return found ? found.company : 'غير معروف';
+            }
+            // محاولة ذكية لبعض الأنماط
+            if (/^SM-/.test(serial)) return 'Samsung';
+            if (/^F[A-Z0-9]/.test(serial)) return 'Apple';
+            if (/^CPH\d+/.test(serial)) return 'Oppo';
+            if (/^V\d+/.test(serial)) return 'Vivo';
+            if (/^RMX\d+/.test(serial)) return 'Realme';
+            if (/^IN\d+/.test(serial)) return 'Infinix';
+            if (/^TEC\d+/.test(serial)) return 'Tecno';
+            if (/^M\d+/.test(serial)) return 'Motorola';
+            if (/^ONE[A-Z0-9]+/.test(serial)) return 'OnePlus';
+            if (/^LIO-/.test(serial)) return 'Huawei';
+            if (/^210[0-9]{5}/.test(serial)) return 'Xiaomi';
+            if (/^HMA-/.test(serial)) return 'Honor';
+            if (/^TA-\d+/.test(serial)) return 'Nokia';
+            if (/^G[0-9]{5}/.test(serial)) return 'Google';
+            if (/^E[0-9]{6}/.test(serial)) return 'Sony';
+            if (/^LM-/.test(serial)) return 'LG';
+            if (/^HT[0-9]{5}/.test(serial)) return 'HTC';
+            if (/^Z[0-9]{6}/.test(serial)) return 'ZTE';
+            if (/^TCL-/.test(serial)) return 'TCL';
+            if (/^S[0-9]{6}/.test(serial)) return 'Sharp';
+            if (/^A[0-9]{6}/.test(serial)) return 'Asus';
+            if (/^P[0-9]{6}/.test(serial)) return 'Panasonic';
+            if (/^PH[0-9]{5}/.test(serial)) return 'Philips';
+            if (/^BV[0-9]{5}/.test(serial)) return 'Blackview';
+            if (/^DG[0-9]{5}/.test(serial)) return 'Doogee';
+            if (/^UF[0-9]{5}/.test(serial)) return 'Ulefone';
+            if (/^CB[0-9]{5}/.test(serial)) return 'Cubot';
+            if (/^LG-/.test(serial)) return 'LG';
+            if (/^LEA[0-9]{4}/.test(serial)) return 'Leagoo';
+            if (/^BLU[0-9]{4}/.test(serial)) return 'Blu';
+            if (/^WK[0-9]{5}/.test(serial)) return 'Wiko';
+            if (/^MMX[0-9]{4}/.test(serial)) return 'Micromax';
+            if (/^LAV[0-9]{4}/.test(serial)) return 'Lava';
+            if (/^PLM[0-9]{4}/.test(serial)) return 'Plum';
+            if (/^COOL[0-9]{3}/.test(serial)) return 'Coolpad';
+            if (/^HS[0-9]{5}/.test(serial)) return 'Hisense';
+            if (/^GN[0-9]{5}/.test(serial)) return 'Gionee';
+            if (/^BQ[0-9]{5}/.test(serial)) return 'BQ';
+            if (/^PSP[0-9]{4}/.test(serial)) return 'Prestigio';
+            if (/^AC[0-9]{5}/.test(serial)) return 'Archos';
+            if (/^FP[0-9]{5}/.test(serial)) return 'Fairphone';
+            return 'غير معروف';
+        }
+
+        // تحميل الأرقام من LocalStorage
+        function loadNumbers() {
+            const saved = localStorage.getItem('scannedNumbers');
+            numbers = saved ? JSON.parse(saved) : [];
+            renderList();
+        }
+
+        // حفظ الأرقام في LocalStorage
+        function saveNumbers() {
+            localStorage.setItem('scannedNumbers', JSON.stringify(numbers));
+        }
+
+        // عرض القائمة
+        function renderList() {
+            listUl.innerHTML = '';
+            numbers.forEach(obj => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class=\"company\">${obj.company}</span> ${obj.serial}`;
+                listUl.appendChild(li);
+            });
+        }
+
+        // بدء المسح
+        startBtn.onclick = function() {
+            if (scanning) return;
+            resultDiv.textContent = '';
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            scanning = true;
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector('#reader'),
+                    constraints: {
+                        facingMode: "environment",
+                        width: 320,
+                        height: 240
+                    }
+                },
+                decoder: {
+                    readers: [
+                        "code_128_reader",
+                        "ean_reader",
+                        "ean_8_reader",
+                        "code_39_reader",
+                        "code_39_vin_reader",
+                        "codabar_reader",
+                        "upc_reader",
+                        "upc_e_reader",
+                        "i2of5_reader",
+                        "2of5_reader",
+                        "code_93_reader"
+                    ]
+                },
+                locate: true
+            }, function(err) {
+                if (err) {
+                    resultDiv.textContent = 'خطأ في تشغيل الكاميرا: ' + err;
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    scanning = false;
+                    return;
+                }
+                Quagga.start();
+            });
+
+            Quagga.onDetected(onDetected);
+        };
+
+        // عند اكتشاف باركود
+        function onDetected(data) {
+            const code = data.codeResult.code;
+            const company = companySelect.value;
+            if (!numbers.some(obj => obj.serial === code && obj.company === company)) {
+                numbers.push({serial: code, company});
+                saveNumbers();
+                renderList();
+            }
+            resultDiv.textContent = `تمت القراءة: ${code} (الشركة: ${company})`;
+            // إيقاف المسح تلقائياً بعد القراءة
+            stopScan();
+        }
+
+        // إيقاف المسح
+        function stopScan() {
+            if (!scanning) return;
+            Quagga.offDetected(onDetected);
+            Quagga.stop();
+            scanning = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        stopBtn.onclick = stopScan;
+
+        // تحميل الأرقام كملف نصي
+        downloadBtn.onclick = function() {
+            if (numbers.length === 0) return;
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}-${mm}-${dd}`;
+            // Create PDF (English only)
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({orientation: 'portrait', unit: 'pt', format: 'a4'});
+            doc.setFont('helvetica');
+            doc.setFontSize(18);
+            doc.text('Masry Devices List', 40, 40);
+            doc.setFontSize(12);
+            doc.text(`Download Date: ${dateStr}`, 40, 65);
+            // Table header
+            let y = 100;
+            doc.setFontSize(14);
+            doc.text('Company', 60, y);
+            doc.text('Serial', 220, y);
+            doc.setLineWidth(0.5);
+            doc.line(50, y+5, 500, y+5);
+            y += 25;
+            doc.setFontSize(12);
+            numbers.forEach(obj => {
+                doc.text(obj.company, 60, y);
+                doc.text(obj.serial, 220, y);
+                y += 22;
+                if (y > 780) { // New page if needed
+                    doc.addPage();
+                    y = 40;
+                }
+            });
+            doc.save(`masry_${dateStr}.pdf`);
+        };
+
+        // إضافة السيريال المدخل يدويًا
+        addManualBtn.onclick = function() {
+            const value = manualInput.value.trim();
+            const company = companySelect.value;
+            if (value && !numbers.some(obj => obj.serial === value && obj.company === company)) {
+                numbers.push({serial: value, company});
+                saveNumbers();
+                renderList();
+                resultDiv.textContent = `تمت الإضافة يدويًا: ${value} (الشركة: ${company})`;
+                manualInput.value = '';
+            } else if (numbers.some(obj => obj.serial === value && obj.company === company)) {
+                resultDiv.textContent = 'هذا السيريال مضاف بالفعل لهذه الشركة!';
+            }
+        };
+        manualInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') addManualBtn.onclick();
+        });
+
+        // تحميل الأرقام عند فتح الصفحة
+        loadNumbers();
+    </script>
+</body>
+</html> 
